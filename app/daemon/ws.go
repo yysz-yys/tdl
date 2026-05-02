@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"go.uber.org/zap"
 )
 
@@ -121,7 +122,7 @@ func (c *Client) writePump() {
 				return
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			err := websocket.WriteJSON(ctx, c.conn, event)
+			err := wsjson.Write(ctx, c.conn, event)
 			cancel()
 			if err != nil {
 				return

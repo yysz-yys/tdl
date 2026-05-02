@@ -10,7 +10,6 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 
-	"github.com/iyear/tdl/core/logctx"
 	"github.com/iyear/tdl/pkg/ps"
 	"github.com/iyear/tdl/pkg/utils"
 )
