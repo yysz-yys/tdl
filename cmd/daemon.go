@@ -9,11 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 
 	"github.com/iyear/tdl/app/daemon"
 	"github.com/iyear/tdl/core/logctx"
-	"github.com/iyear/tdl/pkg/consts"
 )
 
 func NewDaemon() *cobra.Command {
