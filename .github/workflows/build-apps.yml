@@ -1,0 +1,123 @@
+name: Build Cross-Platform Apps
+
+on:
+  workflow_dispatch:  # 允许在 Actions 页面手动触发
+  push:
+    tags:
+      - 'v*'          # 当推送形如 v1.0.0 的 tag 时自动触发
+
+jobs:
+  build-windows:
+    name: Build Windows App (Wails)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Frontend
+        working-directory: ./dashboard
+        run: |
+          npm install
+          npm run build
+
+      - name: Copy Frontend Dist for Wails
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path desktop/frontend/dist
+          Copy-Item -Path dashboard/dist/* -Destination desktop/frontend/dist/ -Recurse -Force
+
+      - name: Build Wails App
+        working-directory: ./desktop
+        run: wails build -platform windows/amd64 -clean
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TDL-Windows-x64
+          path: desktop/build/bin/tdl-desktop.exe
+
+  build-android:
+    name: Build Android App (Gomobile)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Gomobile
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+      - name: Build Android Library (AAR)
+        run: gomobile bind -target=android -androidapi 21 -o tdl-mobile.aar ./cmd/mobile
+
+      - name: Build Frontend
+        working-directory: ./dashboard
+        run: |
+          npm install
+          npm run build
+
+      - name: Prepare Android Project
+        run: |
+          # 创建存放 AAR 和前端产物的目录
+          mkdir -p android/app/libs
+          mkdir -p android/app/src/main/assets/dist
+          
+          # 将生成的 aar 放入安卓工程
+          cp tdl-mobile.aar android/app/libs/
+          
+          # 将前端打包结果放入安卓工程的 assets 目录供 WebView 加载
+          cp -r dashboard/dist/* android/app/src/main/assets/dist/
+          
+          # 初始化最基础的 Gradle 构建文件 (如果在仓库中尚未提供完整的 gradle 包装器)
+          # 注意：实际生产中建议把 Android 完整的项目结构（包括 build.gradle 等）提交到代码库中。
+          # 这里假设 android 目录下已有基础的 Gradle 配置文件。
+
+      - name: Build Android APK
+        working-directory: ./android
+        # 如果仓库里已经有了现成的 Android 工程，直接执行 gradlew
+        # run: ./gradlew assembleRelease
+        # 由于目前是模板骨架，我们只打包上传 aar 和前端资源作为演示工件
+        run: echo "Android project setup ready for compilation"
+
+      - name: Upload Android Artifact (AAR + Assets)
+        uses: actions/upload-artifact@v4
+        with:
+          name: TDL-Android-Resources
+          path: |
+            android/app/libs/tdl-mobile.aar
+            android/app/src/main/assets/dist/
